@@ -5,8 +5,10 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationListener;
@@ -31,6 +33,8 @@ import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -97,7 +101,10 @@ class WebSocketConfiguration {
 
 	@SneakyThrows
 	private String from(ProfileCreatedEvent pce) {
-		return objectMapper.writeValueAsString(pce);
+		Profile profile = (Profile) pce.getSource();
+		Map<String, String> data = new HashMap<>();
+		data.put("id", profile.getId());
+		return objectMapper.writeValueAsString(data);
 	}
 
 	@Bean
@@ -173,6 +180,7 @@ class ProfileSseController {
 	}
 
 	@GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE, value = "/sse/profiles")
+	@CrossOrigin(origins = "http://localhost:3000")
 	Flux<String> sse() {
 		return this.share.map(this::from);
 	}
@@ -229,4 +237,30 @@ class Profile {
 
 	private String email;
 
+}
+
+@Log4j2
+@Component
+@org.springframework.context.annotation.Profile("reset")
+class Initializer implements ApplicationListener<ApplicationReadyEvent> {
+
+	private final ProfileRepository profileRepository;
+
+	Initializer(ProfileRepository profileRepository) {
+		this.profileRepository = profileRepository;
+	}
+
+	@Override
+	public void onApplicationEvent(ApplicationReadyEvent applicationReadyEvent) {
+
+		Flux<Profile> profiles = Flux
+				.just("A", "B", "C", "D")
+				.map(email -> new Profile(null, email))
+				.flatMap(this.profileRepository::save);
+
+		this.profileRepository.deleteAll()
+				.thenMany(profiles)
+				.thenMany(this.profileRepository.findAll())
+				.subscribe(log::info);
+	}
 }
