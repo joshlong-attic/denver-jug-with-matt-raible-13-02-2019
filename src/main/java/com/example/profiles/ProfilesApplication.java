@@ -65,7 +65,11 @@ class ProfileEventPublisher implements
 
 	@Override
 	public void accept(FluxSink<ProfileCreatedEvent> sink) {
-		this.executor.execute(() -> this.send(sink));
+		this.executor.execute(() -> {
+			while (true) {
+				this.send(sink);
+			}
+		});
 	}
 
 	@Override
@@ -98,10 +102,10 @@ class WebSocketConfiguration {
 
 	@Bean
 	WebSocketHandler wsh() {
+		Flux<ProfileCreatedEvent> publish = Flux
+			.create(this.publisher)
+			.share();
 		return session -> {
-			Flux<ProfileCreatedEvent> publish = Flux
-				.create(this.publisher)
-				.share();
 			Flux<WebSocketMessage> map = publish
 				.map(this::from)
 				.map(session::textMessage);
@@ -154,14 +158,23 @@ class ProfileRestController {
 class ProfileSseController {
 
 	private final ProfileEventPublisher publisher;
+	private final Flux<ProfileCreatedEvent> share;
+	private final ObjectMapper objectMapper;
 
-	ProfileSseController(ProfileEventPublisher publisher) {
+	ProfileSseController(ProfileEventPublisher publisher, ObjectMapper objectMapper) {
 		this.publisher = publisher;
+		this.objectMapper = objectMapper;
+		this.share = Flux.create(this.publisher).share();
+	}
+
+	@SneakyThrows
+	String from(ProfileCreatedEvent pce) {
+		return this.objectMapper.writeValueAsString(pce);
 	}
 
 	@GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE, value = "/sse/profiles")
-	Flux<ProfileCreatedEvent> sse() {
-		return Flux.create(this.publisher).share();
+	Flux<String> sse() {
+		return this.share.map(this::from);
 	}
 
 }

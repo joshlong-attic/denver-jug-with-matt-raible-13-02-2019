@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Profile notification client
+    </title>
+</head>
+<body>
+<script>
+    var socket = new WebSocket('ws://localhost:8080/ws/profiles');
+    socket.addEventListener('message', function (event) {
+        window.alert('message from server: ' + event.data);
+    });
+</script>
+</body>
+</html>
