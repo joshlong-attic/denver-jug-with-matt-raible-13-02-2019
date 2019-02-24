@@ -1,0 +1,5 @@
+okta:
+  oauth2:
+    issuer: https://dev-737523.oktapreview.com/oauth2/default
+    clientId: 0oaj2pqatz6wVayhk0h7
+    clientSecret: cwmZFnGOnCbqMP-Jqgnt-jeIbrGn-qpJUiILH69w
