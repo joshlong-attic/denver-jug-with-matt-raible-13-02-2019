@@ -35,6 +35,9 @@ import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -112,7 +115,10 @@ class WebsocketConfiguration {
 
 	@SneakyThrows
 	private String jsonFrom(ProfileCreatedEvent pce) {
-		return objectMapper.writeValueAsString(pce);
+		Map<String, String> data = new HashMap<>();
+		Profile profile = (Profile) pce.getSource();
+		data.put("id", profile.getId());
+		return objectMapper.writeValueAsString(data);
 	}
 
 	private final ObjectMapper objectMapper;
@@ -234,4 +240,31 @@ class Profile {
 	private String id;
 
 	private String email;
+}
+
+@Log4j2
+@Component
+@org.springframework.context.annotation.Profile("demo")
+class SampleDataInitializer
+		implements ApplicationListener<ApplicationReadyEvent> {
+
+	private final ProfileRepository repository;
+
+	public SampleDataInitializer(ProfileRepository repository) {
+		this.repository = repository;
+	}
+
+	@Override
+	public void onApplicationEvent(ApplicationReadyEvent event) {
+		repository
+				.deleteAll()
+				.thenMany(
+						Flux
+								.just("A", "B", "C", "D")
+								.map(name -> new Profile(UUID.randomUUID().toString(), name + "@email.com"))
+								.flatMap(repository::save)
+				)
+				.thenMany(repository.findAll())
+				.subscribe(profile -> log.info("saving " + profile.toString()));
+	}
 }

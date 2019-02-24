@@ -1,4 +1,4 @@
-package com.example.profiles;
+package com.example.profileservice;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
